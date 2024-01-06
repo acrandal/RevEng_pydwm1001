@@ -3,6 +3,7 @@ name = "pydwm1001"
 version = "0.12.1"
 authors = [
   { name="Adam Morrissett", email="morrissettal2@vcu.edu" },
+  { name="Aaron S. Crandall", email="crandall@gonzaga.edu" },
 ]
 description = "A Python library for interfacing with DWM1001"
 readme = "README.md"
@@ -13,7 +14,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "pyserial"
+  "pyserial",
+  "pexpect-serial",
 ]
 
 [project.urls]

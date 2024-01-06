@@ -4,9 +4,12 @@ from enum import Enum
 import math
 import time
 from typing import Tuple
+import logging
 
 # Third party imports
 from serial import Serial
+import pexpect_serial
+import pexpect
 
 
 class TagId(str):
@@ -55,10 +58,11 @@ class SystemInfo:
 
 class ShellCommand(Enum):
     ENTER = b"\r"
-    DOUBLE_ENTER = b"\r\r"
+    DOUBLE_ENTER = b"\n\r\r"
     LEP = b"lep"
     RESET = b"reset"
     SI = b"si"  # System info
+    GET_UPTIME = b"ut"  # Uptime
 
 
 class ParsingError(Exception):
@@ -70,9 +74,52 @@ class UartDwm1001:
     RESET_DELAY_PERIOD = 0.1
     SHELL_STARTUP_DELAY_PERIOD = 1.0
     SHELL_COMMAND_DELAY_PERIOD = 0.5
+    SHELL_TIMEOUT_PERIOD_SEC = 5.0
+    SHELL_PROMPT = "dwm> "
 
     def __init__(self, serial_handle: Serial) -> None:
+        self.log = logging.getLogger(__class__.__name__)
         self.serial_handle = serial_handle
+        self.pexpect_handle = pexpect_serial.SerialSpawn(self.serial_handle, timeout=self.SHELL_TIMEOUT_PERIOD_SEC)
+
+    def connect(self) -> None:
+        try:
+            self.enter_shell_mode()
+            serial_port_path = self.serial_handle.name
+            self.log.debug(f"Connected to DWM1001 on: {serial_port_path}")
+            return
+        except pexpect.exceptions.TIMEOUT:
+            self.log.info("Could not enter shell mode. Resetting device.")
+
+        self.reset()
+        connect_count = 0
+        while connect_count < 5:
+            try:
+                self.enter_shell_mode()
+                break
+            except pexpect.exceptions.TIMEOUT:
+                # self.log.warning("Timeout while connecting to DWM1001.")
+                connect_count += 1
+                continue
+        if connect_count >= 5:
+            self.log.error("Could not connect to DWM1001.")
+            raise pexpect.exceptions.TIMEOUT
+        self.log.debug("Connected to DWM1001.")
+
+    def get_uptime_ms(self) -> int:
+        uptime_ms = 0
+        try:
+            self.pexpect_handle.sendline(ShellCommand.GET_UPTIME.value)
+            self.pexpect_handle.expect(self.SHELL_PROMPT)
+            uptime_str = self.pexpect_handle.before.decode().strip()
+            print(uptime_str)
+            _, right = uptime_str.split(" (")
+            uptime_ms_str, _ = right.split(" ms")
+            uptime_ms = int(uptime_ms_str)
+        except pexpect.exceptions.TIMEOUT:
+            self.log.warning("Timeout while getting uptime.")
+            raise pexpect.exceptions.TIMEOUT
+        return uptime_ms
 
     @property
     def system_info(self) -> SystemInfo:
@@ -101,16 +148,19 @@ class UartDwm1001:
         return raw_data[response_begin:response_end].decode().rstrip()
 
     def reset(self) -> None:
-        self.send_shell_command(ShellCommand.RESET)
-
+        self.pexpect_handle.sendline(ShellCommand.RESET.value)
         time.sleep(self.RESET_DELAY_PERIOD)
 
     def enter_shell_mode(self) -> None:
         self.serial_handle.write(ShellCommand.DOUBLE_ENTER.value)
         self.serial_handle.flush()
-
         time.sleep(self.SHELL_STARTUP_DELAY_PERIOD)
-        self.serial_handle.reset_input_buffer()
+        try:
+            self.pexpect_handle.expect(self.SHELL_PROMPT) # Wait for shell prompt
+        except pexpect.exceptions.TIMEOUT:
+            self.log.warning("Timeout while entering shell mode.")
+            raise pexpect.exceptions.TIMEOUT
+
 
     def exit_shell_mode(self) -> None:
         # If you quit shell mode (with `quit` command) without stopping
@@ -156,6 +206,7 @@ class PassiveTag(UartDwm1001):
 
 class ActiveTag(UartDwm1001):
     def __init__(self, serial_handle) -> None:
+        super().__init__(serial_handle)
         self.serial_handle = serial_handle
 
         # Device may not have shutdown properly previously
