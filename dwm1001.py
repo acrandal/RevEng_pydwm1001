@@ -32,7 +32,13 @@ class TagPosition:
             math.isclose(self.x_m, other.x_m)
             and math.isclose(self.y_m, other.y_m)
             and math.isclose(self.z_m, other.z_m)
-            and self.quality == other.quality
+        )
+    
+    def __eq__(self, other: "TagPosition") -> bool:
+        return (
+            self.x_m == other.x_m
+            and self.y_m == other.y_m
+            and self.z_m == other.z_m
         )
 
 
@@ -57,12 +63,11 @@ class SystemInfo:
 
 
 class ShellCommand(Enum):
-    ENTER = b"\r"
-    DOUBLE_ENTER = b"\n\r\r"
-    LEP = b"lep"
-    RESET = b"reset"
-    SI = b"si"  # System info
-    GET_UPTIME = b"ut"  # Uptime
+    ENTER = '\r'
+    DOUBLE_ENTER = '\r\r'
+    RESET = 'reset'
+    SI = "si"  # System info
+    GET_UPTIME = "ut"  # Uptime
 
 
 class ParsingError(Exception):
@@ -73,9 +78,10 @@ class UartDwm1001:
     # These delay periods were experimentally determined
     RESET_DELAY_PERIOD = 0.1
     SHELL_STARTUP_DELAY_PERIOD = 1.0
-    SHELL_COMMAND_DELAY_PERIOD = 0.5
-    SHELL_TIMEOUT_PERIOD_SEC = 5.0
+    SHELL_TIMEOUT_PERIOD_SEC = 3.0
+
     SHELL_PROMPT = "dwm> "
+    BINARY_MODE_RESPONSE = "@\x01\x01"
 
     def __init__(self, serial_handle: Serial) -> None:
         self.log = logging.getLogger(__class__.__name__)
@@ -83,84 +89,74 @@ class UartDwm1001:
         self.pexpect_handle = pexpect_serial.SerialSpawn(self.serial_handle, timeout=self.SHELL_TIMEOUT_PERIOD_SEC)
 
     def connect(self) -> None:
-        try:
-            self.enter_shell_mode()
-            serial_port_path = self.serial_handle.name
-            self.log.debug(f"Connected to DWM1001 on: {serial_port_path}")
-            return
-        except pexpect.exceptions.TIMEOUT:
-            self.log.info("Could not enter shell mode. Resetting device.")
-
-        self.reset()
-        connect_count = 0
-        while connect_count < 5:
+        if not self.is_in_shell_mode():
+            self.log.debug("Not in shell mode, initializing shell.")
             try:
                 self.enter_shell_mode()
-                break
             except pexpect.exceptions.TIMEOUT:
-                # self.log.warning("Timeout while connecting to DWM1001.")
-                connect_count += 1
-                continue
-        if connect_count >= 5:
-            self.log.error("Could not connect to DWM1001.")
-            raise pexpect.exceptions.TIMEOUT
-        self.log.debug("Connected to DWM1001.")
+                self.log.warn("Connect failed.")
+                raise pexpect.exceptions.TIMEOUT
+        else:
+            self.log.debug("Already in shell mode.")
+        serial_port_path = self.serial_handle.name
+        self.log.info(f"Connected to DWM1001 on: {serial_port_path}")
+        self.clear_pexpect_buffer()
+    
+    def clear_pexpect_buffer(self) -> None:
+        self.pexpect_handle.before = ""     # Clear buffer
+
+    def disconnect(self) -> None:
+        self.log.debug("Disconnecting from DWM1001.")
+        self.exit_shell_mode()
+        self.pexpect_handle.close()
 
     def get_uptime_ms(self) -> int:
         uptime_ms = 0
-        try:
-            self.pexpect_handle.sendline(ShellCommand.GET_UPTIME.value)
-            self.pexpect_handle.expect(self.SHELL_PROMPT)
-            uptime_str = self.pexpect_handle.before.decode().strip()
-            print(uptime_str)
-            _, right = uptime_str.split(" (")
-            uptime_ms_str, _ = right.split(" ms")
-            uptime_ms = int(uptime_ms_str)
-        except pexpect.exceptions.TIMEOUT:
-            self.log.warning("Timeout while getting uptime.")
-            raise pexpect.exceptions.TIMEOUT
+        uptime_str = self.get_command_output(ShellCommand.GET_UPTIME.value)
+        _, right = uptime_str.split(" (")
+        uptime_ms_str, _ = right.split(" ms")
+        uptime_ms = int(uptime_ms_str)
         return uptime_ms
-
-    @property
-    def system_info(self) -> SystemInfo:
-        self.send_shell_command(ShellCommand.SI)
-        response = self.get_shell_response()
-
-        return SystemInfo.from_string(response)
-
-    def send_shell_command(self, command: ShellCommand) -> None:
-        self.serial_handle.write(command.value)
-        self.serial_handle.write(ShellCommand.ENTER.value)
-        self.serial_handle.flush()
-
-        time.sleep(self.SHELL_COMMAND_DELAY_PERIOD)
-
-    def get_shell_response(self) -> str:
-        raw_data = self.serial_handle.read_until(b"dwm> ")
-
-        # Raw data includes sent command, followed by a new line. The
-        # response starts after the new line.
-        response_begin = raw_data.find(b"\r\n") + 2
-
-        # Raw data always ends with the shell prompt.
-        response_end = raw_data.rfind(b"dwm> ")
-
-        return raw_data[response_begin:response_end].decode().rstrip()
+    
+    def get_command_output(self, command: ShellCommand) -> str:
+        try:
+            self.pexpect_handle.sendline(command)
+            self.pexpect_handle.expect(self.SHELL_PROMPT)
+            command_output = self.pexpect_handle.before.decode().strip()
+        except pexpect.exceptions.TIMEOUT:
+            self.log.warning(f"Timeout on command: {command}")
+            raise pexpect.exceptions.TIMEOUT
+        return command_output
 
     def reset(self) -> None:
         self.pexpect_handle.sendline(ShellCommand.RESET.value)
         time.sleep(self.RESET_DELAY_PERIOD)
 
+    def is_in_shell_mode(self) -> bool:
+        self.pexpect_handle.send("a" + ShellCommand.ENTER.value)
+        try:
+            result_index = self.pexpect_handle.expect([self.BINARY_MODE_RESPONSE, self.SHELL_PROMPT], timeout=1)
+            if result_index == 0:
+                return False
+            elif result_index == 1:
+                return True
+        except pexpect.exceptions.TIMEOUT:
+            self.log.warning('Timeout while checking is in shell mode.')
+            return False
+
     def enter_shell_mode(self) -> None:
-        self.serial_handle.write(ShellCommand.DOUBLE_ENTER.value)
-        self.serial_handle.flush()
-        time.sleep(self.SHELL_STARTUP_DELAY_PERIOD)
+        if self.is_in_shell_mode(): # Protect if already in shell mode
+            self.log.debug("Already in shell mode.")
+            return
+
+        self.log.debug("Entering shell mode.")
+        self.pexpect_handle.send(ShellCommand.DOUBLE_ENTER.value)
         try:
             self.pexpect_handle.expect(self.SHELL_PROMPT) # Wait for shell prompt
         except pexpect.exceptions.TIMEOUT:
             self.log.warning("Timeout while entering shell mode.")
             raise pexpect.exceptions.TIMEOUT
-
+        self.log.debug("Entered shell mode.")
 
     def exit_shell_mode(self) -> None:
         # If you quit shell mode (with `quit` command) without stopping
@@ -170,60 +166,3 @@ class UartDwm1001:
         # terminate.
         self.reset()
 
-    def start_position_reporting(self) -> None:
-        self.send_shell_command(ShellCommand.LEP)
-
-        # The first line after invoking the command will have part of
-        # the shell prompt mixed in, which would mess up parsing.
-        self.serial_handle.reset_input_buffer()
-
-    def stop_position_reporting(self) -> None:
-        self.send_shell_command(ShellCommand.ENTER)
-
-
-class PassiveTag(UartDwm1001):
-    def __init__(self, serial_handle: Serial) -> None:
-        super().__init__(serial_handle)
-
-        # Device may not have shutdown properly previously
-        self.reset()
-        self.enter_shell_mode()
-
-    def wait_for_position_report(self) -> Tuple[TagName, TagPosition]:
-        report = self.serial_handle.readline().decode().split(",")
-
-        if len(report) != 8:
-            raise ParsingError("Position report has unexpected length.")
-
-        if report[0] != "POS":
-            raise ParsingError("Position report has incorrect tag.")
-
-        position_data = [float(substr) for substr in report[3:6]]
-        position_data.append(int(report[6]))
-
-        return TagName("DW" + report[2]), TagPosition(*position_data)
-
-
-class ActiveTag(UartDwm1001):
-    def __init__(self, serial_handle) -> None:
-        super().__init__(serial_handle)
-        self.serial_handle = serial_handle
-
-        # Device may not have shutdown properly previously
-        self.reset()
-        self.enter_shell_mode()
-
-    @property
-    def position(self) -> TagPosition:
-        report = self.serial_handle.readline().decode().split(",")
-
-        if len(report) != 5:
-            raise ParsingError("Position report has unexpected length.")
-
-        if report[0] != "POS":
-            raise ParsingError("Position report has incorrect tag.")
-
-        position_data = [float(substr) for substr in report[1:4]]
-        position_data.append(int(report[4]))
-
-        return TagPosition(*position_data)
