@@ -26,6 +26,17 @@ if __name__ == "__main__":
 
     #dwm1001.get_uptime_ms()
 
+    print(dwm1001.get_system_info())
+    print("---------------------------")
+    print(dwm1001.get_position())
+
+    print(dwm1001.get_accelerometer_data())
+
+    print(dwm1001.get_node_mode_str())
+    print(dwm1001.get_node_mode())
+    print(dwm1001.is_in_tag_mode())
+    print(dwm1001.is_in_anchor_mode())
+    print(dwm1001.is_in_anchor_initiator_mode())
 
     #dwm1001.disconnect()
     ser.close()
