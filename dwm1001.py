@@ -118,6 +118,10 @@ class UartDwm1001:
         uptime_ms = int(uptime_ms_str)
         return uptime_ms
     
+    def get_system_info(self) -> str:
+        system_info_str = self.get_command_output(ShellCommand.SI.value)
+        return system_info_str
+    
     def get_command_output(self, command: ShellCommand) -> str:
         try:
             self.pexpect_handle.sendline(command)
