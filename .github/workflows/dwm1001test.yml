@@ -1,4 +1,4 @@
-name: DWM1001 Module Tests
+name: RevEng DWM1001 Module UART Driver Tests
 run-name: User ${{ github.actor }} - Running Tests
 on: [push, pull_request, workflow_dispatch]
 

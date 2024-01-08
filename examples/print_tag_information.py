@@ -26,14 +26,14 @@ def main() -> NoReturn:
     node = dwm1001.UartDwm1001(serial_handle)
     node.connect()
 
-    print("Connected, printing position, press Ctrl+C to stop")
-
-    try:
-        while True:
-            print(node.get_position())
-            sleep(0.25)
-    except KeyboardInterrupt:
-        print("Caught keyboard interrupt - stopping")
+    print("Connected - demoing of tag information")
+    print(f"Node mode: {node.get_node_mode()}")
+    print(f"Node uptime: {node.get_uptime_ms()} ms")
+    print(f"Node position: {node.get_position()}")
+    print(f"Node accelerometer data: {node.get_accelerometer_data()}")
+    print(f"Node network id: {node.get_network_id()}")
+    print(f"Node Bluetooth address: {node.get_ble_address()}")
+    print("Demo complete - disconnecting")
 
     node.disconnect()
 
