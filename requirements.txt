@@ -3,3 +3,4 @@ pyserial
 twine
 pexpect-serial
 pytest
+pytest-cov
