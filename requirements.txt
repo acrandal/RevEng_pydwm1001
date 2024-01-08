@@ -2,3 +2,4 @@ build
 pyserial
 twine
 pexpect-serial
+pytest
