@@ -14,3 +14,6 @@ doc:
 
 clean:
 	rm -rf docs
+
+coverage:
+	pytest --cov=. --cov-report=term-missing

@@ -98,7 +98,7 @@ def test_parse_network_id():
 
 
 def test_parse_accelerometer_str():
-    expected_accelerometer_data = AccelerometerData(x=-256, y=1424, z=8032)
+    expected_accelerometer_data = AccelerometerData(x_raw=-256, y_raw=1424, z_raw=8032)
     accelerometer_return_str = "av\r\nacc: x = -256, y = 1424, z = 8032\r\ndwm> "
 
     dwm1001 = UartDwm1001(mock_serial)
@@ -110,7 +110,7 @@ def test_parse_accelerometer_str():
 
 
 def test_parse_accelerometer_str_highvals():
-    expected_accelerometer_data = AccelerometerData(x=11264, y=-7216, z=-9040)
+    expected_accelerometer_data = AccelerometerData(x_raw=11264, y_raw=-7216, z_raw=-9040)
     accelerometer_return_str = "av\r\nacc: x = 11264, y = -7216, z = -9040\r\ndwm> "
 
     dwm1001 = UartDwm1001(mock_serial)
