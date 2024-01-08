@@ -17,14 +17,23 @@ from serial import Serial
 import pexpect_serial
 import pexpect
 
+
 # Local module defined exceptions
 class ParsingError(Exception):
     """! Exception raised when parsing fails for shell command output."""
+
+    pass
+
+
+class ReservedGPIOPinError(Exception):
+    """! Exception raised when trying to use a reserved GPIO pin."""
+
     pass
 
 
 class ShellCommand(Enum):
-    """! Commands for the DWM1001 shell interface. """
+    """! Commands for the DWM1001 shell interface."""
+
     ENTER = "\r"
     DOUBLE_ENTER = "\r\r"
     RESET = "reset"
@@ -33,13 +42,19 @@ class ShellCommand(Enum):
     GET_POSITION = "apg"  # Get position
     GET_ACCELEROMETER = "av"  # Get accelerometer data
     GET_MODE = "nmg"  # Get node mode: tag, anchor
+    GPIO_CLEAR = "gc"  # Set GPIO pin LOW
+    GPIO_SET = "gs"  # Set GPIO pin HIGH
+    # GPIO_TOGGLE = "gt"  # Toggle GPIO pin -- Doesn't always work in shell?
+    GPIO_GET = "gg"  # Get GPIO pin value
 
 
 class NodeMode(Enum):
-    """! DWM1001 Node Modes """
+    """! DWM1001 Node Modes"""
+
     TAG = "tag"
     ANCHOR = "anchor"
     ANCHOR_INITIATOR = "anchor initiator"
+
 
 @dataclass
 class TagPosition:
@@ -122,15 +137,16 @@ class AccelerometerData:
 
     ---
 
-    Measurements come from a ST LIS2DH12TR accelerometer:  
-    Documentation: https://www.st.com/resource/en/datasheet/lis2dh12.pdf  
+    Measurements come from a ST LIS2DH12TR accelerometer:
+    Documentation: https://www.st.com/resource/en/datasheet/lis2dh12.pdf
     The LIS2DH12TR can be accessed via TWI/I2C on address 0x33.
 
-    - These values are on a 2g full scale range (by default).  
-    - To get the acceleration in gravities, divide by 2^6.  
-    - To get m/s^2, convert to gravities and then multiply by 0.004.  
-    
+    - These values are on a 2g full scale range (by default).
+    - To get the acceleration in gravities, divide by 2^6.
+    - To get m/s^2, convert to gravities and then multiply by 0.004.
+
     """
+
     x_raw: int
     y_raw: int
     z_raw: int
@@ -146,11 +162,11 @@ class UartDwm1001:
 
     @exception pexpect.exceptions.TIMEOUT: If a timeout occurs while waiting for a response from the DWM1001.
 
-    Example usage:  
-      dwm1001 = UartDwm1001(serial_handle)  
-      dwm1001.connect()  
-      tag_position = dwm1001.get_position()  
-      dwm1001.disconnect()  
+    Example usage:
+      dwm1001 = UartDwm1001(serial_handle)
+      dwm1001.connect()
+      tag_position = dwm1001.get_position()
+      dwm1001.disconnect()
     """
 
     __RESET_DELAY_PERIOD = 0.1
@@ -158,6 +174,8 @@ class UartDwm1001:
 
     __SHELL_PROMPT = "dwm> "
     __BINARY_MODE_RESPONSE = "@\x01\x01"
+
+    __LED_GPIO_PIN = 14
 
     def __init__(self, serial_handle: Serial) -> None:
         self.__log = logging.getLogger(__class__.__name__)
@@ -167,7 +185,7 @@ class UartDwm1001:
         )
 
     def connect(self) -> None:
-        """! Connects to the DWM1001 device. """
+        """! Connects to the DWM1001 device."""
         if not self.is_in_shell_mode():
             self.__log.debug("Not in shell mode, initializing shell.")
             try:
@@ -185,13 +203,13 @@ class UartDwm1001:
         self.__pexpect_handle.before = ""  # Clear buffer
 
     def disconnect(self) -> None:
-        """! Disconnects from the DWM1001 device and resets to binary (non-shell) interface. """
+        """! Disconnects from the DWM1001 device and resets to binary (non-shell) interface."""
         self.__log.debug("Disconnecting from DWM1001.")
         self.exit_shell_mode()
         self.__pexpect_handle.close()
 
     def get_uptime_ms(self) -> int:
-        """! Gets the uptime of the DWM1001 in milliseconds. """
+        """! Gets the uptime of the DWM1001 in milliseconds."""
         uptime_str = self.get_command_output(ShellCommand.GET_UPTIME.value)
         return self.parse_uptime_str(uptime_str)
 
@@ -202,12 +220,12 @@ class UartDwm1001:
         return uptime_ms
 
     def get_system_info(self) -> str:
-        """! Gets the system info of the DWM1001. """
+        """! Gets the system info of the DWM1001."""
         system_info_str = self.get_command_output(ShellCommand.GET_SYSTEM_INFO.value)
         return system_info_str
 
     def get_command_output(self, command: ShellCommand) -> str:
-        """! Sends a shell command to the DWM1001 and returns the output. """
+        """! Sends a shell command to the DWM1001 and returns the output."""
         try:
             self.__pexpect_handle.sendline(command)
             self.__pexpect_handle.expect(self.__SHELL_PROMPT)
@@ -218,12 +236,12 @@ class UartDwm1001:
         return command_output
 
     def reset(self) -> None:
-        """! Resets (reboots) the DWM1001 device. """
+        """! Resets (reboots) the DWM1001 device."""
         self.__pexpect_handle.sendline(ShellCommand.RESET.value)
         time.sleep(self.__RESET_DELAY_PERIOD)
 
     def is_in_shell_mode(self) -> bool:
-        """! Checks if the DWM1001 is in shell interface mode. """
+        """! Checks if the DWM1001 is in shell interface mode."""
         self.__pexpect_handle.send("a" + ShellCommand.ENTER.value)
         try:
             result_index = self.__pexpect_handle.expect(
@@ -238,7 +256,7 @@ class UartDwm1001:
             return False
 
     def enter_shell_mode(self) -> None:
-        """! Enters the shell interface mode. """
+        """! Enters the shell interface mode."""
         if self.is_in_shell_mode():  # Protect if already in shell mode
             self.__log.debug("Already in shell mode.")
             return
@@ -266,7 +284,7 @@ class UartDwm1001:
         self.reset()
 
     def get_position(self) -> TagPosition:
-        """! Gets the position of the tag from the DWM1001.  
+        """! Gets the position of the tag from the DWM1001.
         @return TagPosition: The position of the tag.
         """
         location_str = self.get_command_output(ShellCommand.GET_POSITION.value)
@@ -274,7 +292,7 @@ class UartDwm1001:
         return location
 
     def get_ble_address(self) -> str:
-        """! Gets the Bluetooth Low Energy (BLE) address of the DWM1001.  
+        """! Gets the Bluetooth Low Energy (BLE) address of the DWM1001.
         @return str: The BLE hardware/MAC address of the DWM1001.
         """
         system_info_str = self.get_system_info()
@@ -305,7 +323,7 @@ class UartDwm1001:
 
     def get_accelerometer_data(self) -> AccelerometerData:
         """! Gets a sample of the accelerometer data from the DWM1001.
-         @return AccelerometerData: The accelerometer data with x,y,z values.
+        @return AccelerometerData: The accelerometer data with x,y,z values.
         """
         accelerometer_str = self.get_command_output(
             ShellCommand.GET_ACCELEROMETER.value
@@ -319,43 +337,45 @@ class UartDwm1001:
         if match is None:
             raise ParsingError("Could not parse accelerometer data.")
         return AccelerometerData(
-            x_raw=int(match.group("x")), y_raw=int(match.group("y")), z_raw=int(match.group("z"))
+            x_raw=int(match.group("x")),
+            y_raw=int(match.group("y")),
+            z_raw=int(match.group("z")),
         )
 
     def get_node_mode_str(self) -> str:
         """! Gets the node mode of the DWM1001.
-            @return str: The shell node mode string.
+        @return str: The shell node mode string.
 
-            Example tag in active mode:     "mode: tn (act,twr,np,le)"  
-            Example tag in passive mode:    "mode: tn (pasv,twr,lp,le)"  
-            Example tag with UWB radio off: "mode: tn (off,twr,np,le)"  
-            Example anchor:                 "mode: an (act,-,-)"  
-            Example anchor in initiating:   "mode: ani (act,-,-)"  
+        Example tag in active mode:     "mode: tn (act,twr,np,le)"
+        Example tag in passive mode:    "mode: tn (pasv,twr,lp,le)"
+        Example tag with UWB radio off: "mode: tn (off,twr,np,le)"
+        Example anchor:                 "mode: an (act,-,-)"
+        Example anchor in initiating:   "mode: ani (act,-,-)"
         """
         node_mode_str = self.get_command_output(ShellCommand.GET_MODE.value)
         return node_mode_str
 
     def is_in_tag_mode(self) -> bool:
         """! Checks if the DWM1001 node is in tag mode.
-        @return bool: True if the node is in tag mode, False otherwise. """
+        @return bool: True if the node is in tag mode, False otherwise."""
         node_mode_str = self.get_node_mode_str()
         return self.parse_node_mode_str(node_mode_str) == NodeMode.TAG
 
     def is_in_anchor_mode(self) -> bool:
         """! Checks if the DWM1001 node is in anchor mode.
-        @return bool: True if the node is in anchor mode, False otherwise. """
+        @return bool: True if the node is in anchor mode, False otherwise."""
         node_mode_str = self.get_node_mode_str()
         return self.parse_node_mode_str(node_mode_str) == NodeMode.ANCHOR
 
     def is_in_anchor_initiator_mode(self) -> bool:
         """! Checks if the DWM1001 node is in anchor initiator mode.
-        @return bool: True if the node is in anchor initiator mode, False otherwise. """
+        @return bool: True if the node is in anchor initiator mode, False otherwise."""
         node_mode_str = self.get_node_mode_str()
         return self.parse_node_mode_str(node_mode_str) == NodeMode.ANCHOR_INITIATOR
 
     def get_node_mode(self) -> NodeMode:
         """! Gets the node mode of the DWM1001.
-        @return NodeMode: The node mode of the DWM1001. """
+        @return NodeMode: The node mode of the DWM1001."""
         node_mode_str = self.get_node_mode_str()
         return self.parse_node_mode_str(node_mode_str)
 
@@ -371,3 +391,72 @@ class UartDwm1001:
             return NodeMode.ANCHOR
         elif "mode: ani (" in node_mode_str:
             return NodeMode.ANCHOR_INITIATOR
+
+    def get_gpio_pin_state(self, pin: int) -> bool:
+        """! Gets the state of a GPIO pin on the DWM1001.
+        @param pin (int): The GPIO pin number (0-31).
+        @return bool: True if the pin is high, False if the pin is low.
+
+        Valid pin numbers are: [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
+        """
+        pin_state_str = self.get_command_output(f"{ShellCommand.GPIO_GET.value} {pin}")
+        return self.parse_gpio_pin_state_str(pin_state_str)
+
+    def get_gpio_pin_state(self, pin: int) -> bool:
+        """! Gets the state of a GPIO pin on the DWM1001.
+        @param pin (int): The GPIO pin number (0-31).
+        @return bool: True if the pin is high, False if the pin is low.
+
+        Valid pin numbers are: [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
+        """
+        if not self.is_valid_gpio_pin(pin):
+            raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
+        pin_state_str = self.get_command_output(f"{ShellCommand.GPIO_GET.value} {pin}")
+        return self.parse_gpio_pin_state_str(pin_state_str)
+
+    def parse_gpio_pin_state_str(self, pin_state_str: str) -> bool:
+        """! Parses the output of the GPIO_GET command to get the state of a GPIO pin.
+        @param pin_state_str (str): The output of the GPIO_GET command.
+        @return bool: True if the pin is high, False if the pin is low."""
+        # Example: gpio2: 0
+        # Example: gpio2: 1
+        # Example: gpio14: 0
+        # Example: gpio14: 1
+        pattern = r"gpio\d+: (?P<state>\d)"
+        match = re.search(pattern, pin_state_str)
+        if match is None:
+            raise ParsingError("Could not parse GPIO pin state.")
+        return bool(int(match.group("state")))
+
+    def set_gpio_pin_high(self, pin: int) -> None:
+        """! Sets a GPIO pin on the DWM1001 to HIGH.
+        @param pin (int): The GPIO pin number (0-31)."""
+        if not self.is_valid_gpio_pin(pin):
+            raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
+        self.get_command_output(f"{ShellCommand.GPIO_SET.value} {pin}")
+
+    def set_gpio_pin_low(self, pin: int) -> None:
+        """! Sets a GPIO pin on the DWM1001 to LOW.
+        @param pin (int): The GPIO pin number (0-31)."""
+        if not self.is_valid_gpio_pin(pin):
+            raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
+        self.get_command_output(f"{ShellCommand.GPIO_CLEAR.value} {pin}")
+
+    def set_led_on(self) -> None:
+        """! Sets the User LED (D12) on the DWM1001 to ON (high).
+        NOTE: LED is active low"""
+        self.set_gpio_pin_low(self.__LED_GPIO_PIN)
+
+    def set_led_off(self) -> None:
+        """! Sets the User LED (D12) on the DWM1001 to OFF (low).
+        NOTE: LED is active low"""
+        self.set_gpio_pin_high(self.__LED_GPIO_PIN)
+
+    def is_valid_gpio_pin(self, pin: int) -> bool:
+        """! Checks if a GPIO pin is reserved by the DWM1001.
+        @param pin (int): The GPIO pin number (0-31).
+        @return bool: True if the pin is valid, False otherwise.
+
+        Valid pin numbers are: [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
+        """
+        return pin in [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
