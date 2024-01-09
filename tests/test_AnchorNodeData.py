@@ -52,7 +52,7 @@ def test_anchor_node_constructor_2():
 
 def test_list_anchors_command():
     dwm1001node = UartDwm1001(mock_serial)
-    anchor_list = dwm1001node.parse_anchor_list_str(list_anchors_str)
+    anchor_list = dwm1001node._parse_anchor_list_str(list_anchors_str)
 
     assert len(anchor_list) == 4
     assert anchor_list[0].id == "000000000000C920"
@@ -64,28 +64,28 @@ def test_list_anchors_command():
 
 def test_list_anchors_command_0():
     dwm1001node = UartDwm1001(mock_serial)
-    anchor_list = dwm1001node.parse_anchor_list_str(list_anchors_str_0)
+    anchor_list = dwm1001node._parse_anchor_list_str(list_anchors_str_0)
 
     assert len(anchor_list) == 0
 
 def test_get_seen_anchor_count_0():
     expected_anchor_count = 0
     dwm1001node = UartDwm1001(mock_serial)
-    anchor_count = dwm1001node.parse_anchor_seen_count_str(list_anchors_str_0)
+    anchor_count = dwm1001node._parse_anchors_seen_count_str(list_anchors_str_0)
 
     assert anchor_count == expected_anchor_count
 
 def test_get_seen_anchor_count_4():
     expected_anchor_count = 4
     dwm1001node = UartDwm1001(mock_serial)
-    anchor_count = dwm1001node.parse_anchor_seen_count_str(list_anchors_str_4)
+    anchor_count = dwm1001node._parse_anchors_seen_count_str(list_anchors_str_4)
 
     assert anchor_count == expected_anchor_count
 
 def test_get_seen_anchor_count_13():
     expected_anchor_count = 13
     dwm1001node = UartDwm1001(mock_serial)
-    anchor_count = dwm1001node.parse_anchor_seen_count_str(list_anchors_str_13)
+    anchor_count = dwm1001node._parse_anchors_seen_count_str(list_anchors_str_13)
 
     assert anchor_count == expected_anchor_count
 

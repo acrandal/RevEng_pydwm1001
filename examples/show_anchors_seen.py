@@ -30,7 +30,7 @@ def main() -> NoReturn:
 
     try:
         while True:
-            anchors_seen_count = node.get_anchor_seen_count()
+            anchors_seen_count = node.get_anchors_seen_count()
             print(f"Anchors seen count: {anchors_seen_count}")
             anchors_seen_list = node.get_list_of_anchors()
             print(f"Anchors seen list: {anchors_seen_list}")
