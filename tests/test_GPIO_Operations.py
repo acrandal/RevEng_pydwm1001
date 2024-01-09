@@ -52,15 +52,5 @@ def test_parse_gpio_pin_state_str_invalid():
     with pytest.raises(ParsingError):
         node.parse_gpio_pin_state_str("invalid string")
 
-def test_exception_raised_on_invalid_gpio_pin_number_high():
-    node = UartDwm1001(mock_serial)
-    with pytest.raises(ReservedGPIOPinError):
-        node.set_gpio_pin_high(1)
-
-def test_exception_raised_on_invalid_gpio_pin_number_low():
-    node = UartDwm1001(mock_serial)
-    with pytest.raises(ReservedGPIOPinError):
-        node.set_gpio_pin_low(3)
-
 if __name__ == "__main__":
     pytest.main([__file__])

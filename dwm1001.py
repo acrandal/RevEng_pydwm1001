@@ -408,9 +408,9 @@ class UartDwm1001:
 
         Valid pin numbers are: [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
         """
-        if not self.is_valid_gpio_pin(pin):
-            raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
         pin_state_str = self.get_command_output(f"{ShellCommand.GPIO_GET.value} {pin}")
+        if "reserved" in pin_state_str:
+            raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
         return self.parse_gpio_pin_state_str(pin_state_str)
 
     def parse_gpio_pin_state_str(self, pin_state_str: str) -> bool:
@@ -430,16 +430,16 @@ class UartDwm1001:
     def set_gpio_pin_high(self, pin: int) -> None:
         """! Sets a GPIO pin on the DWM1001 to HIGH.
         @param pin (int): The GPIO pin number (0-31)."""
-        if not self.is_valid_gpio_pin(pin):
+        result_str = self.get_command_output(f"{ShellCommand.GPIO_SET.value} {pin}")
+        if "reserved" in result_str:
             raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
-        self.get_command_output(f"{ShellCommand.GPIO_SET.value} {pin}")
 
     def set_gpio_pin_low(self, pin: int) -> None:
         """! Sets a GPIO pin on the DWM1001 to LOW.
         @param pin (int): The GPIO pin number (0-31)."""
-        if not self.is_valid_gpio_pin(pin):
+        result_str = self.get_command_output(f"{ShellCommand.GPIO_CLEAR.value} {pin}")
+        if "reserved" in result_str:
             raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
-        self.get_command_output(f"{ShellCommand.GPIO_CLEAR.value} {pin}")
 
     def set_led_on(self) -> None:
         """! Sets the User LED (D12) on the DWM1001 to ON (high).
