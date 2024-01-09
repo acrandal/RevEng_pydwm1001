@@ -345,11 +345,11 @@ class UartDwm1001:
         """! Gets the node mode of the DWM1001.
         @return str: The shell node mode string.
 
-        Example tag in active mode:     "mode: tn (act,twr,np,le)"
-        Example tag in passive mode:    "mode: tn (pasv,twr,lp,le)"
-        Example tag with UWB radio off: "mode: tn (off,twr,np,le)"
-        Example anchor:                 "mode: an (act,-,-)"
-        Example anchor in initiating:   "mode: ani (act,-,-)"
+        - Example tag in active mode:     "mode: tn (act,twr,np,le)"
+        - Example tag in passive mode:    "mode: tn (pasv,twr,lp,le)"
+        - Example tag with UWB radio off: "mode: tn (off,twr,np,le)"
+        - Example anchor:                 "mode: an (act,-,-)"
+        - Example anchor in initiating:   "mode: ani (act,-,-)"
         """
         node_mode_str = self.get_command_output(ShellCommand.GET_MODE.value)
         return node_mode_str
