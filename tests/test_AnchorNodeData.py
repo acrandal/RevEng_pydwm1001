@@ -89,4 +89,13 @@ def test_get_seen_anchor_count_13():
 
     assert anchor_count == expected_anchor_count
 
+def test_construct_invalid_string_1():
+    invalid_string = "Invalid String Input"
+    with pytest.raises(ParsingError):
+        AnchorNodeData.from_string(invalid_string)
 
+def test_invalid_anchor_count_parse():
+    invalid_string = "Invalid String Input"
+    dwm1001node = UartDwm1001(mock_serial)
+    with pytest.raises(ParsingError):
+        dwm1001node._parse_anchors_seen_count_str(invalid_string)
