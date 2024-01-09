@@ -131,7 +131,7 @@ class TagPosition:
         """
         return (self.x_m, self.y_m, self.z_m)
     
-    def get_as_list(self) -> list:
+    def get_as_list(self) -> list[float, float, float]:
         """! Gets the position as a list of floats.
         @return list[float]: The position as a list of floats.
 
@@ -510,14 +510,14 @@ class UartDwm1001:
         """
         return pin in [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
 
-    def get_list_of_anchors(self) -> list[AnchorNodeData]:
+    def get_list_of_anchors(self) -> list:
         """! Gets a list of anchors currently seen by the DWM1001.
         @return list[AnchorNodeData]: A list of AnchorNodeData instances.
         """
         anchor_list_str = self.get_command_output(ShellCommand.GET_ANCHOR_LIST.value)
         return self._parse_anchor_list_str(anchor_list_str)
     
-    def _parse_anchor_list_str(self, anchor_list_str: str) -> list[AnchorNodeData]:
+    def _parse_anchor_list_str(self, anchor_list_str: str) -> list:
         """! Parses the output of the "List Anchors" command to get a list of anchors.
         @param anchor_list_str (str): The output of the 'list anchors' command.
         @return list[AnchorNodeData]: A list of AnchorNodeData instances.
