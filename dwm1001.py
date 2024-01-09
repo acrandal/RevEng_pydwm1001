@@ -131,7 +131,7 @@ class TagPosition:
         """
         return (self.x_m, self.y_m, self.z_m)
     
-    def get_as_list(self) -> list[float]:
+    def get_as_list(self) -> list:
         """! Gets the position as a list of floats.
         @return list[float]: The position as a list of floats.
 
