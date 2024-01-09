@@ -44,7 +44,6 @@ class ShellCommand(Enum):
     GET_MODE = "nmg"  # Get node mode: tag, anchor
     GPIO_CLEAR = "gc"  # Set GPIO pin LOW
     GPIO_SET = "gs"  # Set GPIO pin HIGH
-    # GPIO_TOGGLE = "gt"  # Toggle GPIO pin -- Doesn't always work in shell?
     GPIO_GET = "gg"  # Get GPIO pin value
 
 
@@ -106,8 +105,8 @@ class TagPosition:
 
         @exception ParsingError: If the APG line cannot be parsed.
 
-        Example apg position line: x:0 y:0 z:0 qf:0
-        Example apg position line: x:10 y:78888 z:-334 qf:57
+        - Example apg position line: x:0 y:0 z:0 qf:0
+        - Example apg position line: x:10 y:78888 z:-334 qf:57
         """
         # Example line: x:0 y:0 z:0 qf:0
         # Example line: x:10 y:78888 z:-334 qf:57
@@ -138,8 +137,8 @@ class AccelerometerData:
     ---
 
     Measurements come from a ST LIS2DH12TR accelerometer:
-    Documentation: https://www.st.com/resource/en/datasheet/lis2dh12.pdf
-    The LIS2DH12TR can be accessed via TWI/I2C on address 0x33.
+    - Documentation: https://www.st.com/resource/en/datasheet/lis2dh12.pdf
+    - The LIS2DH12TR can be accessed via TWI/I2C on address 0x33.
 
     - These values are on a 2g full scale range (by default).
     - To get the acceleration in gravities, divide by 2^6.
@@ -163,10 +162,10 @@ class UartDwm1001:
     @exception pexpect.exceptions.TIMEOUT: If a timeout occurs while waiting for a response from the DWM1001.
 
     Example usage:
-      dwm1001 = UartDwm1001(serial_handle)
-      dwm1001.connect()
-      tag_position = dwm1001.get_position()
-      dwm1001.disconnect()
+      - dwm1001 = UartDwm1001(serial_handle)
+      - dwm1001.connect()
+      - tag_position = dwm1001.get_position()
+      - dwm1001.disconnect()
     """
 
     __RESET_DELAY_PERIOD = 0.1
