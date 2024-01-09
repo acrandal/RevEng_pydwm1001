@@ -1,11 +1,11 @@
 [project]
-name = "pydwm1001"
-version = "0.12.1"
+name = "RevEng_pydwm1001"
+version = "1.0.1"
 authors = [
   { name="Adam Morrissett", email="morrissettal2@vcu.edu" },
   { name="Aaron S. Crandall", email="crandall@gonzaga.edu" },
 ]
-description = "A Python library for interfacing with DWM1001"
+description = "A Python library for interfacing with the Qorvo DWM1001"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/the-hive-lab/pydwm1001"
-"Bug Tracker" = "https://github.com/the-hive-lab/pydwm1001/issues"
+"Homepage" = "https://github.com/https://github.com/acrandal/RevEng_pydwm1001"
+"Bug Tracker" = "https://github.com/https://github.com/acrandal/RevEng_pydwm1001/issues"
 
 [build-system]
 requires = ["setuptools>=61.0"]

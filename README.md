@@ -24,8 +24,15 @@ The Qorvo supplied C library uses the firmware interface as documented here: htt
 This library should work on Linux, OSX, and Windows.
 Additionally, it should work on Raspberry Pi, Orange Pi, NanoPI, and other similar SOC boards via the serial interface on pins 6, 8, and 10 of the Raspberry Pi GPIO header.
 
+## Compatability
+
+Current testing has been done with a DWM1001_A2 dev kit with v1 of the firmware.
+
 ### Contributors and Library History
 
 - Adam Morrissett \<morrissettal2@vcu.edu>
 - Aaron S. Crandall \<crandall@gonzaga.edu>
 
+#### History:
+
+The RevEng_pydwm1001 project was forked from Adam Morrissett's the-hive-lab/pydwm1001.
