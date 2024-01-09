@@ -42,6 +42,7 @@ class ShellCommand(Enum):
     GET_POSITION = "apg"  # Get position
     GET_ACCELEROMETER = "av"  # Get accelerometer data
     GET_MODE = "nmg"  # Get node mode: tag, anchor
+    GET_ANCHOR_LIST = "la"  # Get list of currently seen anchors
     GPIO_CLEAR = "gc"  # Set GPIO pin LOW
     GPIO_SET = "gs"  # Set GPIO pin HIGH
     GPIO_GET = "gg"  # Get GPIO pin value
@@ -124,6 +125,20 @@ class TagPosition:
 
         return position
 
+    def get_as_tuple(self) -> tuple[float, float, float]:
+        """! Gets the position as a tuple of floats.
+        @return tuple[float, float, float]: The position as a tuple of floats.
+        """
+        return (self.x_m, self.y_m, self.z_m)
+    
+    def get_as_list(self) -> list[float]:
+        """! Gets the position as a list of floats.
+        @return list[float]: The position as a list of floats.
+
+        NOTE: Very useful for creating a numpy array for 3D operations.
+        """
+        return [self.x_m, self.y_m, self.z_m]
+
 
 @dataclass
 class AccelerometerData:
@@ -151,8 +166,35 @@ class AccelerometerData:
     z_raw: int
 
 
+@dataclass
+class AnchorNodeData:
+    """! Represents an anchro node in the system."""
+    id: str
+    seat: int
+    seens: int
+    position: TagPosition
+
+    @staticmethod
+    def from_string(anchor_line: str) -> "AnchorNodeData":
+        """! Parses a string to create an AnchorData instance."""
+        # Example: [003976.620 INF]   0) id=000000000000C920 seat=0 idl=0 seens=40 lqi=0 fl=5001 map=00000000 pos=0.38:0.84:2.15
+        # Example: [003976.630 INF]   1) id=0000000000008389 seat=3 idl=0 seens=116 lqi=0 fl=5001 map=00000002 pos=4.96:2.50:1.78
+        # Example: [003976.640 INF]   2) id=0000000000000E0B seat=4 idl=0 seens=103 lqi=0 fl=5001 map=00000002 pos=0.64:8.63:1.13
+        # pos=0.64:8.63:1.13  # x:y:z
+        pattern = r"id=(?P<id>[0-9A-F]+) seat=(?P<seat>\d+) idl=\d+ seens=(?P<seens>\d+) lqi=\d+ fl=\d+ map=\d+ pos=(?P<pos>[0-9.:-]+)"
+        match = re.search(pattern, anchor_line)
+        if match is None:
+            raise ParsingError("Could not parse anchor line.")
+        id = match.group("id")
+        seat = int(match.group("seat"))
+        seens = int(match.group("seens"))
+        position_str = match.group("pos")
+        x_str, y_str, z_str = position_str.split(":")
+        position = TagPosition(float(x_str), float(y_str), float(z_str), 0)
+        return AnchorNodeData(id, seat, seens, position)
+
+
 class UartDwm1001:
-    # These delay periods were experimentally determined
     """! Represents the communication interface with DWM1001 using UART.
 
     This class provides methods to interact with DWM1001 through UART, send commands, and receive responses.
@@ -168,6 +210,7 @@ class UartDwm1001:
       - dwm1001.disconnect()
     """
 
+    # These delay periods were experimentally determined
     __RESET_DELAY_PERIOD = 0.1
     __SHELL_TIMEOUT_PERIOD_SEC = 3.0
 
@@ -459,3 +502,44 @@ class UartDwm1001:
         Valid pin numbers are: [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
         """
         return pin in [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
+
+    def get_list_of_anchors(self) -> list[AnchorNodeData]:
+        """! Gets a list of anchors currently seen by the DWM1001.
+        @return list[AnchorNodeData]: A list of AnchorNodeData instances.
+        """
+        anchor_list_str = self.get_command_output(ShellCommand.GET_ANCHOR_LIST.value)
+        return self.parse_anchor_list_str(anchor_list_str)
+    
+    def parse_anchor_list_str(self, anchor_list_str: str) -> list[AnchorNodeData]:
+        """! Parses the output of the "List Anchors" command to get a list of anchors.
+        @param anchor_list_str (str): The output of the 'list anchors' command.
+        @return list[AnchorNodeData]: A list of AnchorNodeData instances.
+        """
+        lines = anchor_list_str.splitlines()
+        anchor_list = []
+        for line in lines:
+            if " seat=" in line:
+                anchor_list.append(AnchorNodeData.from_string(line))
+        return anchor_list
+
+    def get_anchor_seen_count(self) -> int:
+        """! Gets the number of anchors currently seen by the DWM1001.
+        @return int: The number of anchors seen.
+        """
+        # Example: [005899.170 INF] AN: cnt=4 seq=x09
+        # Example: [005899.170 INF] AN: cnt=2 seq=x03
+        anchor_list_str = self.get_command_output(ShellCommand.GET_ANCHOR_LIST.value)
+        return self.parse_anchor_seen_count_str(anchor_list_str)
+    
+    def parse_anchor_seen_count_str(self, anchor_list_str: str) -> int:
+        """! Parses the output of the "List Anchors" command to get the number of anchors seen.
+        @param anchor_list_str (str): The output of the 'list anchors' command.
+        @return int: The number of anchors seen.
+        """
+        # Example: [005899.170 INF] AN: cnt=4 seq=x09
+        # Example: [005899.170 INF] AN: cnt=2 seq=x03
+        pattern = r"AN: cnt=(?P<cnt>\d+) seq="
+        match = re.search(pattern, anchor_list_str)
+        if match is None:
+            raise ParsingError("Could not parse anchor list.")
+        return int(match.group("cnt"))
