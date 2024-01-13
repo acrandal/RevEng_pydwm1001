@@ -17,3 +17,6 @@ clean:
 
 coverage:
 	pytest --cov=. --cov-report=term-missing
+
+black:
+	black .

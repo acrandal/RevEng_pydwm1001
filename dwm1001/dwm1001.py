@@ -25,7 +25,7 @@ from .node_mode import NodeMode
 from .shell_command import ShellCommand
 
 
-class UartDwm1001:
+class DWM1001Node:
     """! Represents the communication interface with DWM1001 using UART.
 
     This class provides methods to interact with DWM1001 through UART, send commands, and receive responses.

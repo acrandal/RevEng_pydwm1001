@@ -65,17 +65,20 @@ def test_almost_equality_not_equal():
 
     assert not position1.is_almost_equal(position2)
 
+
 def test_get_as_tuple():
     position = TagPosition(1.23, 4.56, 7.89, 42)
     position_tuple = position.get_as_tuple()
 
     assert position_tuple == (1.23, 4.56, 7.89)
 
+
 def test_get_as_list():
     position = TagPosition(1.23, 4.56, 7.89, 42)
     position_list = position.get_as_list()
 
     assert position_list == [1.23, 4.56, 7.89]
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -1,4 +1,3 @@
-
 import os
 import sys
 import pytest
@@ -9,7 +8,7 @@ from unittest import mock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Import modules under test
-from dwm1001.dwm1001 import UartDwm1001, AccelerometerData, NodeMode
+from dwm1001.dwm1001 import DWM1001Node, AccelerometerData, NodeMode
 
 
 # ************************* Mock Serial ************************* #
@@ -59,7 +58,7 @@ def test_dwm1001_get_uptime_ms():
         "ut\r\n[002673.760 INF] uptime: 00:44:33.760 0 days (2673760 ms)\r\ndwm> "
     )
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_uptime_ms = dwm1001._parse_uptime_str(uptime_return_str)
     assert actual_uptime_ms == expected_uptime_ms
@@ -71,7 +70,7 @@ def test_dwm1001_get_uptime_ms_small():
         "ut\r\n[002673.760 INF] uptime: 00:44:33.760 0 days (2670 ms)\r\ndwm> "
     )
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_uptime_ms = dwm1001._parse_uptime_str(uptime_return_str)
     assert actual_uptime_ms == expected_uptime_ms
@@ -81,7 +80,7 @@ def test_parse_get_ble_address():
     expected_ble_address = "E0:E5:D3:0A:19:BE"
     ble_address_return_str = f"si\r\n{system_info_str}\r\ndwm> "
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_ble_address = dwm1001._parse_ble_address(ble_address_return_str)
     assert actual_ble_address == expected_ble_address
@@ -91,7 +90,7 @@ def test_parse_network_id():
     expected_network_id = "xC7D4"
     network_id_return_str = f"si\r\n{system_info_str}\r\ndwm> "
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_network_id = dwm1001._parse_network_id(network_id_return_str)
     assert actual_network_id == expected_network_id
@@ -101,7 +100,7 @@ def test_parse_accelerometer_str():
     expected_accelerometer_data = AccelerometerData(x_raw=-256, y_raw=1424, z_raw=8032)
     accelerometer_return_str = "av\r\nacc: x = -256, y = 1424, z = 8032\r\ndwm> "
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_accelerometer_data = dwm1001._parse_accelerometer_str(
         accelerometer_return_str
@@ -110,10 +109,12 @@ def test_parse_accelerometer_str():
 
 
 def test_parse_accelerometer_str_highvals():
-    expected_accelerometer_data = AccelerometerData(x_raw=11264, y_raw=-7216, z_raw=-9040)
+    expected_accelerometer_data = AccelerometerData(
+        x_raw=11264, y_raw=-7216, z_raw=-9040
+    )
     accelerometer_return_str = "av\r\nacc: x = 11264, y = -7216, z = -9040\r\ndwm> "
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_accelerometer_data = dwm1001._parse_accelerometer_str(
         accelerometer_return_str
@@ -125,7 +126,7 @@ def test_parse_node_mode_tag_active():
     expected_node_mode = NodeMode.TAG
     node_mode_return_str = "nmg\r\nmode: tn (act,twr,np,le)\r\ndwm> "
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_node_mode = dwm1001._parse_node_mode_str(node_mode_return_str)
     assert actual_node_mode == expected_node_mode
@@ -135,7 +136,7 @@ def test_parse_node_mode_tag_passive():
     expected_node_mode = NodeMode.TAG
     node_mode_return_str = "nmg\r\nmode: tn (pasv,twr,np,le)\r\ndwm> "
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_node_mode = dwm1001._parse_node_mode_str(node_mode_return_str)
     assert actual_node_mode == expected_node_mode
@@ -145,7 +146,7 @@ def test_parse_node_mode_tag_off():
     expected_node_mode = NodeMode.TAG
     node_mode_return_str = "nmg\r\nmode: tn (off,twr,np,le)\r\ndwm> "
 
-    dwm1001 = UartDwm1001(mock_serial)
+    dwm1001 = DWM1001Node(mock_serial)
 
     actual_node_mode = dwm1001._parse_node_mode_str(node_mode_return_str)
     assert actual_node_mode == expected_node_mode
