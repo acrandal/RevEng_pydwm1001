@@ -8,8 +8,9 @@ from serial import Serial
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Import modules under test
-from dwm1001 import ParsingError, UartDwm1001, AnchorNodeData, TagPosition
+from dwm1001.dwm1001 import UartDwm1001, AnchorNodeData, TagPosition, ParsingError
 
+# ************************* Mock Serial ************************* #
 mock_serial = mock.Mock(Serial)
 mock_serial.isOpen = lambda: True
 

@@ -7,7 +7,6 @@
 # Standard library imports
 from dataclasses import dataclass
 from enum import Enum
-import math
 import time
 import logging
 import re
@@ -17,181 +16,13 @@ from serial import Serial
 import pexpect_serial
 import pexpect
 
-
-# Local module defined exceptions
-class ParsingError(Exception):
-    """! Exception raised when parsing fails for shell command output."""
-
-    pass
-
-
-class ReservedGPIOPinError(Exception):
-    """! Exception raised when trying to use a reserved GPIO pin."""
-
-    pass
-
-
-class ShellCommand(Enum):
-    """! Commands for the DWM1001 shell interface."""
-
-    ENTER = "\r"
-    DOUBLE_ENTER = "\r\r"
-    RESET = "reset"
-    GET_SYSTEM_INFO = "si"  # System info
-    GET_UPTIME = "ut"  # Uptime
-    GET_POSITION = "apg"  # Get position
-    GET_ACCELEROMETER = "av"  # Get accelerometer data
-    GET_MODE = "nmg"  # Get node mode: tag, anchor
-    GET_ANCHOR_LIST = "la"  # Get list of currently seen anchors
-    GPIO_CLEAR = "gc"  # Set GPIO pin LOW
-    GPIO_SET = "gs"  # Set GPIO pin HIGH
-    GPIO_GET = "gg"  # Get GPIO pin value
-
-
-class NodeMode(Enum):
-    """! DWM1001 Node Modes"""
-
-    TAG = "tag"
-    ANCHOR = "anchor"
-    ANCHOR_INITIATOR = "anchor initiator"
-
-
-@dataclass
-class TagPosition:
-    """! Represents the position of a tag in 3D space.
-
-    Attributes:
-    - x_m (float): X-coordinate in meters.
-    - y_m (float): Y-coordinate in meters.
-    - z_m (float): Z-coordinate in meters.
-    - quality (int): Quality of the tag position.
-
-    """
-
-    x_m: float
-    y_m: float
-    z_m: float
-    quality: int
-
-    def is_almost_equal(self, other: "TagPosition", relative_tolerance_m=0.01) -> bool:
-        """! Checks if two TagPosition instances are almost equal in coordinates.
-
-        @param other (TagPosition): The other TagPosition instance to compare.
-        @param rel_tol_m (float): Relative tolerance in meters. Defaults to 0.01 meters.
-
-        @return bool: True if the instances are almost equal, False otherwise.
-        """
-        return (
-            math.isclose(self.x_m, other.x_m, rel_tol=relative_tolerance_m)
-            and math.isclose(self.y_m, other.y_m, rel_tol=relative_tolerance_m)
-            and math.isclose(self.z_m, other.z_m, rel_tol=relative_tolerance_m)
-        )
-
-    def __eq__(self, other: "TagPosition") -> bool:
-        """! Checks if two TagPosition instances are equal in the coordinate system.
-
-        @param other (TagPosition): The other TagPosition instance to compare.
-
-        @return bool: True if the instances are equal, False otherwise.
-        """
-        return self.x_m == other.x_m and self.y_m == other.y_m and self.z_m == other.z_m
-
-    @staticmethod
-    def from_string(apg_line: str) -> "TagPosition":
-        """! Parses a string to create a TagPosition instance.
-
-        @param apg_line (str): The input string containing tag position information.
-
-        @return TagPosition: The TagPosition instance created from the string.
-
-        @exception ParsingError: If the APG line cannot be parsed.
-
-        - Example apg position line: x:0 y:0 z:0 qf:0
-        - Example apg position line: x:10 y:78888 z:-334 qf:57
-        """
-        # Example line: x:0 y:0 z:0 qf:0
-        # Example line: x:10 y:78888 z:-334 qf:57
-        # Note: apg command returns values in mm, so we divide by 1000
-        pattern = r"x:(?P<x>-?\d+) y:(?P<y>-?\d+) z:(?P<z>-?\d+) qf:(?P<qf>\d+)"
-        match = re.search(pattern, apg_line)
-        if match is None:
-            raise ParsingError("Could not parse APG line.")
-        position = TagPosition(
-            x_m=float(match.group("x")) / 1000,
-            y_m=float(match.group("y")) / 1000,
-            z_m=float(match.group("z")) / 1000,
-            quality=int(match.group("qf")),
-        )
-
-        return position
-
-    def get_as_tuple(self) -> tuple:
-        """! Gets the position as a tuple of floats.
-        @return tuple[float, float, float]: The position as a tuple of floats.
-        """
-        return (self.x_m, self.y_m, self.z_m)
-    
-    def get_as_list(self) -> list:
-        """! Gets the position as a list of floats.
-        @return list[float]: The position as a list of floats.
-
-        NOTE: Very useful for creating a numpy array for 3D operations.
-        """
-        return [self.x_m, self.y_m, self.z_m]
-
-
-@dataclass
-class AccelerometerData:
-    """! Represents the accelerometer data from the DWM1001-DEV module.
-
-    Attributes:
-    - x_raw (int): X-axis acceleration.
-    - y_raw (int): Y-axis acceleration.
-    - z_raw (int): Z-axis acceleration.
-
-    ---
-
-    Measurements come from a ST LIS2DH12TR accelerometer:
-    - Documentation: https://www.st.com/resource/en/datasheet/lis2dh12.pdf
-    - The LIS2DH12TR can be accessed via TWI/I2C on address 0x33.
-
-    - These values are on a 2g full scale range (by default).
-    - To get the acceleration in gravities, divide by 2^6.
-    - To get m/s^2, convert to gravities and then multiply by 0.004.
-
-    """
-
-    x_raw: int
-    y_raw: int
-    z_raw: int
-
-
-@dataclass
-class AnchorNodeData:
-    """! Represents an anchor node in the system."""
-    id: str
-    seat: int
-    seens: int
-    position: TagPosition
-
-    @staticmethod
-    def from_string(anchor_line: str) -> "AnchorNodeData":
-        """! Parses a string to create an AnchorData instance."""
-        # Example: [003976.620 INF]   0) id=000000000000C920 seat=0 idl=0 seens=40 lqi=0 fl=5001 map=00000000 pos=0.38:0.84:2.15
-        # Example: [003976.630 INF]   1) id=0000000000008389 seat=3 idl=0 seens=116 lqi=0 fl=5001 map=00000002 pos=4.96:2.50:1.78
-        # Example: [003976.640 INF]   2) id=0000000000000E0B seat=4 idl=0 seens=103 lqi=0 fl=5001 map=00000002 pos=0.64:8.63:1.13
-        # pos=0.64:8.63:1.13  # x:y:z
-        pattern = r"id=(?P<id>[0-9A-F]+) seat=(?P<seat>\d+) idl=\d+ seens=(?P<seens>\d+) lqi=\d+ fl=\d+ map=\d+ pos=(?P<pos>[0-9.:-]+)"
-        match = re.search(pattern, anchor_line)
-        if match is None:
-            raise ParsingError("Could not parse anchor line.")
-        id = match.group("id")
-        seat = int(match.group("seat"))
-        seens = int(match.group("seens"))
-        position_str = match.group("pos")
-        x_str, y_str, z_str = position_str.split(":")
-        position = TagPosition(float(x_str), float(y_str), float(z_str), 0)
-        return AnchorNodeData(id, seat, seens, position)
+# DWM1001 module imports
+from .exceptions import ParsingError, ReservedGPIOPinError
+from .tag_position import TagPosition
+from .accelerometer_data import AccelerometerData
+from .anchor_node_data import AnchorNodeData
+from .node_mode import NodeMode
+from .shell_command import ShellCommand
 
 
 class UartDwm1001:
@@ -516,7 +347,7 @@ class UartDwm1001:
         """
         anchor_list_str = self.get_command_output(ShellCommand.GET_ANCHOR_LIST.value)
         return self._parse_anchor_list_str(anchor_list_str)
-    
+
     def _parse_anchor_list_str(self, anchor_list_str: str) -> list:
         """! Parses the output of the "List Anchors" command to get a list of anchors.
         @param anchor_list_str (str): The output of the 'list anchors' command.
@@ -537,7 +368,7 @@ class UartDwm1001:
         # Example: [005899.170 INF] AN: cnt=2 seq=x03
         anchor_list_str = self.get_command_output(ShellCommand.GET_ANCHOR_LIST.value)
         return self._parse_anchors_seen_count_str(anchor_list_str)
-    
+
     def _parse_anchors_seen_count_str(self, anchor_list_str: str) -> int:
         """! Parses the output of the "List Anchors" command to get the number of anchors seen.
         @param anchor_list_str (str): The output of the 'list anchors' command.

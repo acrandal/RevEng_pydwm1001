@@ -12,7 +12,7 @@ from serial import Serial
 
 # Allows us to find dwm1001 library without installing it
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-import dwm1001
+import dwm1001.dwm1001 as dwm1001
 
 SERIAL_PORT_PATH = "/dev/ttyACM0"
 

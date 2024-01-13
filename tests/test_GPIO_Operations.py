@@ -8,7 +8,7 @@ from serial import Serial
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Import modules under test
-from dwm1001 import ParsingError, UartDwm1001, ReservedGPIOPinError
+from dwm1001.dwm1001 import ParsingError, UartDwm1001
 
 valid_gpio_pins = [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
 invalid_gpio_pins = [0, 1, 3, 4, 5, 6, 7, 11, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 28, 29, 30, 31]
