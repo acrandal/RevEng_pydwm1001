@@ -42,6 +42,7 @@ class ShellCommand(Enum):
     GET_POSITION = "apg"  # Get position
     GET_ACCELEROMETER = "av"  # Get accelerometer data
     GET_MODE = "nmg"  # Get node mode: tag, anchor
+    GET_ANCHOR_LIST = "la"  # Get list of currently seen anchors
     GPIO_CLEAR = "gc"  # Set GPIO pin LOW
     GPIO_SET = "gs"  # Set GPIO pin HIGH
     GPIO_GET = "gg"  # Get GPIO pin value
@@ -124,6 +125,20 @@ class TagPosition:
 
         return position
 
+    def get_as_tuple(self) -> tuple:
+        """! Gets the position as a tuple of floats.
+        @return tuple[float, float, float]: The position as a tuple of floats.
+        """
+        return (self.x_m, self.y_m, self.z_m)
+    
+    def get_as_list(self) -> list:
+        """! Gets the position as a list of floats.
+        @return list[float]: The position as a list of floats.
+
+        NOTE: Very useful for creating a numpy array for 3D operations.
+        """
+        return [self.x_m, self.y_m, self.z_m]
+
 
 @dataclass
 class AccelerometerData:
@@ -151,8 +166,35 @@ class AccelerometerData:
     z_raw: int
 
 
+@dataclass
+class AnchorNodeData:
+    """! Represents an anchor node in the system."""
+    id: str
+    seat: int
+    seens: int
+    position: TagPosition
+
+    @staticmethod
+    def from_string(anchor_line: str) -> "AnchorNodeData":
+        """! Parses a string to create an AnchorData instance."""
+        # Example: [003976.620 INF]   0) id=000000000000C920 seat=0 idl=0 seens=40 lqi=0 fl=5001 map=00000000 pos=0.38:0.84:2.15
+        # Example: [003976.630 INF]   1) id=0000000000008389 seat=3 idl=0 seens=116 lqi=0 fl=5001 map=00000002 pos=4.96:2.50:1.78
+        # Example: [003976.640 INF]   2) id=0000000000000E0B seat=4 idl=0 seens=103 lqi=0 fl=5001 map=00000002 pos=0.64:8.63:1.13
+        # pos=0.64:8.63:1.13  # x:y:z
+        pattern = r"id=(?P<id>[0-9A-F]+) seat=(?P<seat>\d+) idl=\d+ seens=(?P<seens>\d+) lqi=\d+ fl=\d+ map=\d+ pos=(?P<pos>[0-9.:-]+)"
+        match = re.search(pattern, anchor_line)
+        if match is None:
+            raise ParsingError("Could not parse anchor line.")
+        id = match.group("id")
+        seat = int(match.group("seat"))
+        seens = int(match.group("seens"))
+        position_str = match.group("pos")
+        x_str, y_str, z_str = position_str.split(":")
+        position = TagPosition(float(x_str), float(y_str), float(z_str), 0)
+        return AnchorNodeData(id, seat, seens, position)
+
+
 class UartDwm1001:
-    # These delay periods were experimentally determined
     """! Represents the communication interface with DWM1001 using UART.
 
     This class provides methods to interact with DWM1001 through UART, send commands, and receive responses.
@@ -168,6 +210,7 @@ class UartDwm1001:
       - dwm1001.disconnect()
     """
 
+    # These delay periods were experimentally determined
     __RESET_DELAY_PERIOD = 0.1
     __SHELL_TIMEOUT_PERIOD_SEC = 3.0
 
@@ -177,6 +220,8 @@ class UartDwm1001:
     __LED_GPIO_PIN = 14
 
     def __init__(self, serial_handle: Serial) -> None:
+        """! Constructor for UartDwm1001 class.
+        @param serial_handle (Serial): An already open Serial handle to the DWM1001 device."""
         self.__log = logging.getLogger(__class__.__name__)
         self.__serial_handle = serial_handle
         self.__pexpect_handle = pexpect_serial.SerialSpawn(
@@ -205,14 +250,14 @@ class UartDwm1001:
         """! Disconnects from the DWM1001 device and resets to binary (non-shell) interface."""
         self.__log.debug("Disconnecting from DWM1001.")
         self.exit_shell_mode()
-        self.__pexpect_handle.close()
+        # self.__pexpect_handle.close() # TODO: Decide if this should be called
 
     def get_uptime_ms(self) -> int:
         """! Gets the uptime of the DWM1001 in milliseconds."""
         uptime_str = self.get_command_output(ShellCommand.GET_UPTIME.value)
-        return self.parse_uptime_str(uptime_str)
+        return self._parse_uptime_str(uptime_str)
 
-    def parse_uptime_str(self, uptime_str: str) -> int:
+    def _parse_uptime_str(self, uptime_str: str) -> int:
         _, right = uptime_str.split(" (")
         uptime_ms_str, _ = right.split(" ms")
         uptime_ms = int(uptime_ms_str)
@@ -224,7 +269,9 @@ class UartDwm1001:
         return system_info_str
 
     def get_command_output(self, command: ShellCommand) -> str:
-        """! Sends a shell command to the DWM1001 and returns the output."""
+        """! Sends a shell command to the DWM1001 and returns the output.
+        @param command (ShellCommand): The shell command to send.
+        @return str: The output of the shell command."""
         try:
             self.__pexpect_handle.sendline(command)
             self.__pexpect_handle.expect(self.__SHELL_PROMPT)
@@ -295,9 +342,9 @@ class UartDwm1001:
         @return str: The BLE hardware/MAC address of the DWM1001.
         """
         system_info_str = self.get_system_info()
-        return self.parse_ble_address(system_info_str)
+        return self._parse_ble_address(system_info_str)
 
-    def parse_ble_address(self, system_info_str: str) -> str:
+    def _parse_ble_address(self, system_info_str: str) -> str:
         # Example line: [036167.350 INF] ble: addr=E0:E5:D3:0A:19:BE
         # Example line: [036967.750 INF] ble: addr=E0:D5:F3:FA:19:C1
         pattern = r"ble: addr=(?P<ble_address>[0-9A-F:]+)"
@@ -310,9 +357,9 @@ class UartDwm1001:
         """! Gets the network ID (the hex name) the DWM1001 is associated with.
         @return str: The network ID of the DWM1001."""
         system_info_str = self.get_system_info()
-        return self.parse_network_id(system_info_str)
+        return self._parse_network_id(system_info_str)
 
-    def parse_network_id(self, system_info_str: str) -> str:
+    def _parse_network_id(self, system_info_str: str) -> str:
         # Example line: [036167.320 INF] uwb0: panid=xC7D4 addr=xDECA59CDFA608830
         pattern = r"panid=(?P<network_id>x[0-9A-F]+) addr="
         match = re.search(pattern, system_info_str)
@@ -327,9 +374,12 @@ class UartDwm1001:
         accelerometer_str = self.get_command_output(
             ShellCommand.GET_ACCELEROMETER.value
         )
-        return self.parse_accelerometer_str(accelerometer_str)
+        return self._parse_accelerometer_str(accelerometer_str)
 
-    def parse_accelerometer_str(self, accelerometer_str: str) -> AccelerometerData:
+    def _parse_accelerometer_str(self, accelerometer_str: str) -> AccelerometerData:
+        """! Parses the output of the accelerometer command to get the x,y,z values.
+        @param accelerometer_str (str): The output of the 'accelerometer' command.
+        @return AccelerometerData: The accelerometer data with x,y,z values."""
         # Example line: acc: x = -256, y = 1424, z = 8032
         pattern = r"acc: x = (?P<x>-?\d+), y = (?P<y>-?\d+), z = (?P<z>-?\d+)"
         match = re.search(pattern, accelerometer_str)
@@ -358,27 +408,27 @@ class UartDwm1001:
         """! Checks if the DWM1001 node is in tag mode.
         @return bool: True if the node is in tag mode, False otherwise."""
         node_mode_str = self.get_node_mode_str()
-        return self.parse_node_mode_str(node_mode_str) == NodeMode.TAG
+        return self._parse_node_mode_str(node_mode_str) == NodeMode.TAG
 
     def is_in_anchor_mode(self) -> bool:
         """! Checks if the DWM1001 node is in anchor mode.
         @return bool: True if the node is in anchor mode, False otherwise."""
         node_mode_str = self.get_node_mode_str()
-        return self.parse_node_mode_str(node_mode_str) == NodeMode.ANCHOR
+        return self._parse_node_mode_str(node_mode_str) == NodeMode.ANCHOR
 
     def is_in_anchor_initiator_mode(self) -> bool:
         """! Checks if the DWM1001 node is in anchor initiator mode.
         @return bool: True if the node is in anchor initiator mode, False otherwise."""
         node_mode_str = self.get_node_mode_str()
-        return self.parse_node_mode_str(node_mode_str) == NodeMode.ANCHOR_INITIATOR
+        return self._parse_node_mode_str(node_mode_str) == NodeMode.ANCHOR_INITIATOR
 
     def get_node_mode(self) -> NodeMode:
         """! Gets the node mode of the DWM1001.
         @return NodeMode: The node mode of the DWM1001."""
         node_mode_str = self.get_node_mode_str()
-        return self.parse_node_mode_str(node_mode_str)
+        return self._parse_node_mode_str(node_mode_str)
 
-    def parse_node_mode_str(self, node_mode_str: str) -> NodeMode:
+    def _parse_node_mode_str(self, node_mode_str: str) -> NodeMode:
         # Example: mode: tn (act,twr,np,le)
         # Example: mode: tn (pasv,twr,lp,le)
         # Example: mode: tn (off,twr,np,le)
@@ -399,7 +449,7 @@ class UartDwm1001:
         Valid pin numbers are: [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
         """
         pin_state_str = self.get_command_output(f"{ShellCommand.GPIO_GET.value} {pin}")
-        return self.parse_gpio_pin_state_str(pin_state_str)
+        return self._parse_gpio_pin_state_str(pin_state_str)
 
     def get_gpio_pin_state(self, pin: int) -> bool:
         """! Gets the state of a GPIO pin on the DWM1001.
@@ -411,9 +461,9 @@ class UartDwm1001:
         pin_state_str = self.get_command_output(f"{ShellCommand.GPIO_GET.value} {pin}")
         if "reserved" in pin_state_str:
             raise ReservedGPIOPinError(f"GPIO pin {pin} is reserved by the DWM1001.")
-        return self.parse_gpio_pin_state_str(pin_state_str)
+        return self._parse_gpio_pin_state_str(pin_state_str)
 
-    def parse_gpio_pin_state_str(self, pin_state_str: str) -> bool:
+    def _parse_gpio_pin_state_str(self, pin_state_str: str) -> bool:
         """! Parses the output of the GPIO_GET command to get the state of a GPIO pin.
         @param pin_state_str (str): The output of the GPIO_GET command.
         @return bool: True if the pin is high, False if the pin is low."""
@@ -459,3 +509,44 @@ class UartDwm1001:
         Valid pin numbers are: [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
         """
         return pin in [2, 8, 9, 10, 12, 13, 14, 15, 23, 27]
+
+    def get_list_of_anchors(self) -> list:
+        """! Gets a list of anchors currently seen by the DWM1001.
+        @return list[AnchorNodeData]: A list of AnchorNodeData instances.
+        """
+        anchor_list_str = self.get_command_output(ShellCommand.GET_ANCHOR_LIST.value)
+        return self._parse_anchor_list_str(anchor_list_str)
+    
+    def _parse_anchor_list_str(self, anchor_list_str: str) -> list:
+        """! Parses the output of the "List Anchors" command to get a list of anchors.
+        @param anchor_list_str (str): The output of the 'list anchors' command.
+        @return list[AnchorNodeData]: A list of AnchorNodeData instances.
+        """
+        lines = anchor_list_str.splitlines()
+        anchor_list = []
+        for line in lines:
+            if " seat=" in line:
+                anchor_list.append(AnchorNodeData.from_string(line))
+        return anchor_list
+
+    def get_anchors_seen_count(self) -> int:
+        """! Gets the number of anchors currently seen by the DWM1001.
+        @return int: The number of anchors seen.
+        """
+        # Example: [005899.170 INF] AN: cnt=4 seq=x09
+        # Example: [005899.170 INF] AN: cnt=2 seq=x03
+        anchor_list_str = self.get_command_output(ShellCommand.GET_ANCHOR_LIST.value)
+        return self._parse_anchors_seen_count_str(anchor_list_str)
+    
+    def _parse_anchors_seen_count_str(self, anchor_list_str: str) -> int:
+        """! Parses the output of the "List Anchors" command to get the number of anchors seen.
+        @param anchor_list_str (str): The output of the 'list anchors' command.
+        @return int: The number of anchors seen.
+        """
+        # Example: [005899.170 INF] AN: cnt=4 seq=x09
+        # Example: [005899.170 INF] AN: cnt=2 seq=x03
+        pattern = r"AN: cnt=(?P<cnt>\d+) seq="
+        match = re.search(pattern, anchor_list_str)
+        if match is None:
+            raise ParsingError("Could not parse anchor list.")
+        return int(match.group("cnt"))

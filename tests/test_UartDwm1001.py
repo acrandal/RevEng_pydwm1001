@@ -61,7 +61,7 @@ def test_dwm1001_get_uptime_ms():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_uptime_ms = dwm1001.parse_uptime_str(uptime_return_str)
+    actual_uptime_ms = dwm1001._parse_uptime_str(uptime_return_str)
     assert actual_uptime_ms == expected_uptime_ms
 
 
@@ -73,7 +73,7 @@ def test_dwm1001_get_uptime_ms_small():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_uptime_ms = dwm1001.parse_uptime_str(uptime_return_str)
+    actual_uptime_ms = dwm1001._parse_uptime_str(uptime_return_str)
     assert actual_uptime_ms == expected_uptime_ms
 
 
@@ -83,7 +83,7 @@ def test_parse_get_ble_address():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_ble_address = dwm1001.parse_ble_address(ble_address_return_str)
+    actual_ble_address = dwm1001._parse_ble_address(ble_address_return_str)
     assert actual_ble_address == expected_ble_address
 
 
@@ -93,7 +93,7 @@ def test_parse_network_id():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_network_id = dwm1001.parse_network_id(network_id_return_str)
+    actual_network_id = dwm1001._parse_network_id(network_id_return_str)
     assert actual_network_id == expected_network_id
 
 
@@ -103,7 +103,7 @@ def test_parse_accelerometer_str():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_accelerometer_data = dwm1001.parse_accelerometer_str(
+    actual_accelerometer_data = dwm1001._parse_accelerometer_str(
         accelerometer_return_str
     )
     assert actual_accelerometer_data == expected_accelerometer_data
@@ -115,7 +115,7 @@ def test_parse_accelerometer_str_highvals():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_accelerometer_data = dwm1001.parse_accelerometer_str(
+    actual_accelerometer_data = dwm1001._parse_accelerometer_str(
         accelerometer_return_str
     )
     assert actual_accelerometer_data == expected_accelerometer_data
@@ -127,7 +127,7 @@ def test_parse_node_mode_tag_active():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_node_mode = dwm1001.parse_node_mode_str(node_mode_return_str)
+    actual_node_mode = dwm1001._parse_node_mode_str(node_mode_return_str)
     assert actual_node_mode == expected_node_mode
 
 
@@ -137,7 +137,7 @@ def test_parse_node_mode_tag_passive():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_node_mode = dwm1001.parse_node_mode_str(node_mode_return_str)
+    actual_node_mode = dwm1001._parse_node_mode_str(node_mode_return_str)
     assert actual_node_mode == expected_node_mode
 
 
@@ -147,7 +147,7 @@ def test_parse_node_mode_tag_off():
 
     dwm1001 = UartDwm1001(mock_serial)
 
-    actual_node_mode = dwm1001.parse_node_mode_str(node_mode_return_str)
+    actual_node_mode = dwm1001._parse_node_mode_str(node_mode_return_str)
     assert actual_node_mode == expected_node_mode
 
 

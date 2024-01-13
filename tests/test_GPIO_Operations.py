@@ -33,24 +33,24 @@ def test_invalid_gpio_pin_numbers():
 
 def test_parse_gpio_pin_state_str_2_LOW():
     node = UartDwm1001(mock_serial)
-    assert node.parse_gpio_pin_state_str(example_gpio_get_str_2_LOW) == False
+    assert node._parse_gpio_pin_state_str(example_gpio_get_str_2_LOW) == False
 
 def test_parse_gpio_pin_state_str_2_HIGH():
     node = UartDwm1001(mock_serial)
-    assert node.parse_gpio_pin_state_str(example_gpio_get_str_2_HIGH) == True
+    assert node._parse_gpio_pin_state_str(example_gpio_get_str_2_HIGH) == True
 
 def test_parse_gpio_pin_state_str_14_LOW():
     node = UartDwm1001(mock_serial)
-    assert node.parse_gpio_pin_state_str(example_gpio_get_str_14_LOW) == False
+    assert node._parse_gpio_pin_state_str(example_gpio_get_str_14_LOW) == False
 
 def test_parse_gpio_pin_state_str_14_HIGH():
     node = UartDwm1001(mock_serial)
-    assert node.parse_gpio_pin_state_str(example_gpio_get_str_14_HIGH) == True
+    assert node._parse_gpio_pin_state_str(example_gpio_get_str_14_HIGH) == True
 
 def test_parse_gpio_pin_state_str_invalid():
     node = UartDwm1001(mock_serial)
     with pytest.raises(ParsingError):
-        node.parse_gpio_pin_state_str("invalid string")
+        node._parse_gpio_pin_state_str("invalid string")
 
 if __name__ == "__main__":
     pytest.main([__file__])
