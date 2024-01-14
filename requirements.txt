@@ -4,3 +4,4 @@ twine
 pexpect-serial
 pytest
 pytest-cov
+mock_serial

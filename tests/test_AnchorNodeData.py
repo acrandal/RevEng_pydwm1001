@@ -8,8 +8,9 @@ from serial import Serial
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Import modules under test
-from dwm1001 import ParsingError, UartDwm1001, AnchorNodeData, TagPosition
+from dwm1001.dwm1001 import DWM1001Node, AnchorNodeData, TagPosition, ParsingError
 
+# ************************* Mock Serial ************************* #
 mock_serial = mock.Mock(Serial)
 mock_serial.isOpen = lambda: True
 
@@ -36,22 +37,25 @@ def test_anchor_node_constructor_0():
     assert anchor_node.seens == 40
     assert anchor_node.position == TagPosition(0.38, 0.84, 2.15, 0)
 
+
 def test_anchor_node_constructor_1():
     anchor_node = AnchorNodeData.from_string(anchor_data_1)
     assert anchor_node.id == "0000000000008389"
     assert anchor_node.seat == 3
     assert anchor_node.seens == 116
-    assert anchor_node.position == TagPosition(114.96,2.50,-1.78,0)
+    assert anchor_node.position == TagPosition(114.96, 2.50, -1.78, 0)
+
 
 def test_anchor_node_constructor_2():
     anchor_node = AnchorNodeData.from_string(anchor_data_2)
     assert anchor_node.id == "0000000000000E0B"
     assert anchor_node.seat == 14
     assert anchor_node.seens == 2103
-    assert anchor_node.position == TagPosition(-0.0,-8000.63,-1.13,0)
+    assert anchor_node.position == TagPosition(-0.0, -8000.63, -1.13, 0)
+
 
 def test_list_anchors_command():
-    dwm1001node = UartDwm1001(mock_serial)
+    dwm1001node = DWM1001Node(mock_serial)
     anchor_list = dwm1001node._parse_anchor_list_str(list_anchors_str)
 
     assert len(anchor_list) == 4
@@ -62,40 +66,46 @@ def test_list_anchors_command():
     assert anchor_list[2].id == "0000000000000E0B"
     assert anchor_list[3].id == "0000000000004505"
 
+
 def test_list_anchors_command_0():
-    dwm1001node = UartDwm1001(mock_serial)
+    dwm1001node = DWM1001Node(mock_serial)
     anchor_list = dwm1001node._parse_anchor_list_str(list_anchors_str_0)
 
     assert len(anchor_list) == 0
 
+
 def test_get_seen_anchor_count_0():
     expected_anchor_count = 0
-    dwm1001node = UartDwm1001(mock_serial)
+    dwm1001node = DWM1001Node(mock_serial)
     anchor_count = dwm1001node._parse_anchors_seen_count_str(list_anchors_str_0)
 
     assert anchor_count == expected_anchor_count
 
+
 def test_get_seen_anchor_count_4():
     expected_anchor_count = 4
-    dwm1001node = UartDwm1001(mock_serial)
+    dwm1001node = DWM1001Node(mock_serial)
     anchor_count = dwm1001node._parse_anchors_seen_count_str(list_anchors_str_4)
 
     assert anchor_count == expected_anchor_count
 
+
 def test_get_seen_anchor_count_13():
     expected_anchor_count = 13
-    dwm1001node = UartDwm1001(mock_serial)
+    dwm1001node = DWM1001Node(mock_serial)
     anchor_count = dwm1001node._parse_anchors_seen_count_str(list_anchors_str_13)
 
     assert anchor_count == expected_anchor_count
+
 
 def test_construct_invalid_string_1():
     invalid_string = "Invalid String Input"
     with pytest.raises(ParsingError):
         AnchorNodeData.from_string(invalid_string)
 
+
 def test_invalid_anchor_count_parse():
     invalid_string = "Invalid String Input"
-    dwm1001node = UartDwm1001(mock_serial)
+    dwm1001node = DWM1001Node(mock_serial)
     with pytest.raises(ParsingError):
         dwm1001node._parse_anchors_seen_count_str(invalid_string)

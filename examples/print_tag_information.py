@@ -12,7 +12,7 @@ from serial import Serial
 
 # Allows us to find dwm1001 library without installing it
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-import dwm1001
+from dwm1001.dwm1001 import DWM1001Node
 
 SERIAL_PORT_PATH = "/dev/ttyACM0"
 
@@ -23,7 +23,7 @@ def main() -> NoReturn:
 
     serial_handle = Serial(SERIAL_PORT_PATH, baudrate=115200, timeout=5)
 
-    node = dwm1001.UartDwm1001(serial_handle)
+    node = DWM1001Node(serial_handle)
     node.connect()
 
     print("Connected - demoing of tag information")
