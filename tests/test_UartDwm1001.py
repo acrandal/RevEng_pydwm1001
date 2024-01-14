@@ -12,10 +12,6 @@ from dwm1001.dwm1001 import DWM1001Node, AccelerometerData, NodeMode
 
 
 # ************************* Mock Serial ************************* #
-# No one seems to know how to do this properly for pexpect_serial.
-# It's a huge mess of mocking and patching, but nothing seems to work.
-# This is the best I could come up with where I can still test the parsing, if not the serial communication.
-
 mock_serial = mock.Mock(serial.Serial)
 mock_serial.isOpen = lambda: True
 
