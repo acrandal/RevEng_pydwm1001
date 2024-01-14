@@ -43,20 +43,19 @@ class DWM1001Node:
 
     # These delay periods were experimentally determined
     __RESET_DELAY_PERIOD = 0.1
-    __SHELL_TIMEOUT_PERIOD_SEC = 3.0
 
     __SHELL_PROMPT = "dwm> "
     __BINARY_MODE_RESPONSE = "@\x01\x01"
 
     __LED_GPIO_PIN = 14
 
-    def __init__(self, serial_handle: Serial) -> None:
+    def __init__(self, serial_handle: Serial, shell_timeout_sec=3.0) -> None:
         """! Constructor for UartDwm1001 class.
         @param serial_handle (Serial): An already open Serial handle to the DWM1001 device."""
         self.__log = logging.getLogger(__class__.__name__)
         self.__serial_handle = serial_handle
         self.__pexpect_handle = pexpect_serial.SerialSpawn(
-            self.__serial_handle, timeout=self.__SHELL_TIMEOUT_PERIOD_SEC
+            self.__serial_handle, timeout=shell_timeout_sec
         )
 
     def connect(self) -> None:
@@ -66,8 +65,8 @@ class DWM1001Node:
             try:
                 self.enter_shell_mode()
             except pexpect.exceptions.TIMEOUT:
-                self.__log.warn("Connect failed.")
-                raise pexpect.exceptions.TIMEOUT
+                self.__log.warning("Connect failed.")
+                raise pexpect.exceptions.TIMEOUT("Shell mode response timeout.")
         else:
             self.__log.debug("Already in shell mode.")
         serial_port_path = self.__serial_handle.name
@@ -81,7 +80,6 @@ class DWM1001Node:
         """! Disconnects from the DWM1001 device and resets to binary (non-shell) interface."""
         self.__log.debug("Disconnecting from DWM1001.")
         self.exit_shell_mode()
-        # self.__pexpect_handle.close() # TODO: Decide if this should be called
 
     def get_uptime_ms(self) -> int:
         """! Gets the uptime of the DWM1001 in milliseconds."""
@@ -109,7 +107,7 @@ class DWM1001Node:
             command_output = self.__pexpect_handle.before.decode().strip()
         except pexpect.exceptions.TIMEOUT:
             self.__log.warning(f"Timeout on command: {command}")
-            raise pexpect.exceptions.TIMEOUT
+            raise pexpect.exceptions.TIMEOUT(f"Timeout on command: {command}")
         return command_output
 
     def reset(self) -> None:
@@ -144,7 +142,7 @@ class DWM1001Node:
             self.__pexpect_handle.expect(self.__SHELL_PROMPT)  # Wait for shell prompt
         except pexpect.exceptions.TIMEOUT:
             self.__log.warning("Timeout while entering shell mode.")
-            raise pexpect.exceptions.TIMEOUT
+            raise pexpect.exceptions.TIMEOUT("Timeout while entering shell mode.")
         self.__log.debug("Entered shell mode.")
 
     def exit_shell_mode(self) -> None:
