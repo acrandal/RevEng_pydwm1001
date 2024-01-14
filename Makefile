@@ -16,7 +16,7 @@ clean:
 	rm -rf docs
 
 coverage:
-	pytest --cov=. --cov-report=term-missing
+	pytest --cov=dwm1001 --cov-report=term-missing
 
 black:
 	black .
